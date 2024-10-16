@@ -119,6 +119,15 @@
     :bool
   (key :int))
 
+(cffi:defcfun
+    ("DrawText" rl-draw-text)
+    :void
+  (text :string)
+  (posX :int)
+  (posY :int)
+  (fontSize :int)
+  (color (:struct color)))
+
 (defstruct vector-2 x y)
 (defparameter car-pos (make-vector-2 :x (float (/ 1024 2)) :y (float (/ 768 2))))
 
@@ -174,6 +183,15 @@
 				     0.0
 				     1.0
 				     (cffi:mem-ref tint-color '(:struct color))))))
+	   
+	   (cffi:with-foreign-object (tint-color '(:struct color))
+		 (setf 
+		  (cffi:foreign-slot-value tint-color '(:struct color) 'r) 255
+		  (cffi:foreign-slot-value tint-color '(:struct color) 'g) 255
+		  (cffi:foreign-slot-value tint-color '(:struct color) 'b) 255
+		  (cffi:foreign-slot-value tint-color '(:struct color) 'a) 255)
+	     (rl-draw-text "Raylib lisp game engine" 100 100 20 (cffi:mem-ref tint-color '(:struct color))))
+	   
 	     
 	   (rl-end-drawing))
   (rl-close-window))
