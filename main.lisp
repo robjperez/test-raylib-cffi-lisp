@@ -7,15 +7,51 @@
 
 (cffi:use-foreign-library raylib)
 
-(cffi:defcstruct color
+;; --- Color wrapper ----
+(cffi:defcstruct (%color :class color) 
   (r :unsigned-char)
   (g :unsigned-char) 
   (b :unsigned-char) 
   (a :unsigned-char))
 
-(cffi:defcstruct vector2
+(defstruct rl-color
+  (r 0)
+  (g 0)
+  (b 0)
+  (a 0))
+  
+(defmethod cffi:expand-into-foreign-memory (value (type color) ptr)
+  `(cffi:with-foreign-slots ((r g b a) ,ptr (:struct %color))
+     (setf r (rl-color-r ,value)
+	   g (rl-color-g ,value)
+	   b (rl-color-b ,value)
+	   a (rl-color-a ,value))))
+
+(defmethod cffi:translate-into-foreign-memory (value (type color) ptr)
+  (cffi:with-foreign-slots ((r g b a) ptr (:struct %color))
+    (setf r (rl-color-r value)
+	  g (rl-color-g value)
+	  b (rl-color-b value)
+	  a (rl-color-a value))))
+
+;; ---- Vector2 wrapper ----
+(cffi:defcstruct (%vector2 :class vector2)
   (x :float)
   (y :float))
+
+(defstruct rl-vector2
+  (x 0)
+  (y 0))
+
+(defmethod cffi:expand-into-foreign-memory (value (type vector2) ptr)
+  `(cffi:with-foreign-slots ((x y) ,ptr (:struct %vector2))
+     (setf x (rl-vector2-x ,value)
+	   y (rl-vector2-y ,value))))
+
+(defmethod cffi:translate-into-foreign-memory (value (type vector2) ptr)
+  (cffi:with-foreign-slots ((x y) ptr (:struct %vector2))
+    (setf x (rl-vector2-x value)
+	  y (rl-vector2-y value))))
 
 (cffi:defcstruct image
   (data :pointer)
@@ -69,14 +105,14 @@
 (cffi:defcfun
     ("ClearBackground" rl-clear-background)
     :void
-  (color (:struct color)))
+  (color (:struct %color)))
 
 (cffi:defcfun
     ("DrawPixel" rl-draw-pixel)
     :void
   (posX :int)
   (posY :int)
-  (color (:struct color)))
+  (color (:struct %color)))
 
 (cffi:defcfun
     ("DrawRectangle" rl-draw-rectangle)
@@ -85,7 +121,7 @@
   (posY :int)
   (width :int)
   (height :int)
-  (color (:struct color)))
+  (color (:struct %color)))
 
 (cffi:defcfun
     ("LoadImage" rl-load-image)
@@ -103,16 +139,16 @@
   (texture (:struct texture2d))
   (posX :int)
   (posY :int)
-  (tint (:struct color)))
+  (tint (:struct %color)))
 
 (cffi:defcfun
     ("DrawTextureEx" rl-draw-texture-ex)
     :void
   (texture (:struct texture2d))
-  (position (:struct vector2))
+  (position (:struct %vector2))
   (rotation :float)
   (scale :float)
-  (tint (:struct color)))
+  (tint (:struct %color)))
 
 (cffi:defcfun
     ("IsKeyDown" rl-is-key-down)
@@ -126,75 +162,41 @@
   (posX :int)
   (posY :int)
   (fontSize :int)
-  (color (:struct color)))
+  (color (:struct %color)))
 
-(defstruct vector-2 x y)
-(defparameter car-pos (make-vector-2 :x (float (/ 1024 2)) :y (float (/ 768 2))))
+(defparameter car-pos (make-rl-vector2 :x (float (/ 1024 2)) :y (float (/ 768 2))))
 
 (defun main ()
-  (rl-init-window 1024 768 "Test CFFI")
+  (unwind-protect
+       (progn
+	 (rl-init-window 1024 768 "Test CFFI")
+    
+	 (rl-set-target-fps 60)
+	 
+	 (loop while (not (rl-window-should-close))
+	       do
+		  (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :left))
+		    (setf (rl-vector2-x car-pos) (- (rl-vector2-x car-pos) 3)))
+		  (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :right))
+		    (setf (rl-vector2-x car-pos) (+ (rl-vector2-x car-pos) 3)))
+		  (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :up))
+		    (setf (rl-vector2-y car-pos) (- (rl-vector2-y car-pos) 3)))
+		  (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :down))
+		    (setf (rl-vector2-y car-pos) (+ (rl-vector2-y car-pos) 3)))
 
-  (rl-set-target-fps 60)
-
-  (loop while (not (rl-window-should-close))
-	do
-	   (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :left))
-	     (setf (vector-2-x car-pos) (- (vector-2-x car-pos) 3)))
-	   (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :right))
-	     (setf (vector-2-x car-pos) (+ (vector-2-x car-pos) 3)))
-	   (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :up))
-	     (setf (vector-2-y car-pos) (- (vector-2-y car-pos) 3)))
-	   (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :down))
-	     (setf (vector-2-y car-pos) (+ (vector-2-y car-pos) 3)))
-
-	   (rl-begin-drawing)
-	   
-	   (cffi:with-foreign-object (clear-color '(:struct color))
-	     (setf 
-	      (cffi:foreign-slot-value clear-color '(:struct color) 'r) 0
-	      (cffi:foreign-slot-value clear-color '(:struct color) 'g) 0
-	      (cffi:foreign-slot-value clear-color '(:struct color) 'b) 0
-	      (cffi:foreign-slot-value clear-color '(:struct color) 'a) 0)
-	     (rl-clear-background (cffi:mem-ref clear-color '(:struct color))))
-
-	   ;; (cffi:with-foreign-object (pixel-color '(:struct color))
-	   ;;   (setf 
-	   ;;    (cffi:foreign-slot-value pixel-color '(:struct color) 'r) (random 255)
-	   ;;    (cffi:foreign-slot-value pixel-color '(:struct color) 'g) (random 255)
-	   ;;    (cffi:foreign-slot-value pixel-color '(:struct color) 'b) (random 255)
-	   ;;    (cffi:foreign-slot-value pixel-color '(:struct color) 'a) 255)
-	   ;;   (rl-draw-rectangle (random 1024) (random 768) 20 20 (cffi:mem-ref pixel-color '(:struct color))))
-
-	   (let ((car-sprite (rl-load-texture "car.png")))
-	     (cffi:with-foreign-object (rl-car-pos '(:struct vector2))
-	       (setf
-		(cffi:foreign-slot-value rl-car-pos '(:struct vector2) 'x) (vector-2-x car-pos)
-		(cffi:foreign-slot-value rl-car-pos '(:struct vector2) 'y) (vector-2-y car-pos))
-
-	       (cffi:with-foreign-object (tint-color '(:struct color))
-		 (setf 
-		  (cffi:foreign-slot-value tint-color '(:struct color) 'r) 255
-		  (cffi:foreign-slot-value tint-color '(:struct color) 'g) 0
-		  (cffi:foreign-slot-value tint-color '(:struct color) 'b) 0
-		  (cffi:foreign-slot-value tint-color '(:struct color) 'a) 255)		 
-		 
-		 (rl-draw-texture-ex car-sprite
-				     (cffi:mem-ref rl-car-pos '(:struct vector2))
-				     0.0
-				     1.0
-				     (cffi:mem-ref tint-color '(:struct color))))))
-	   
-	   (cffi:with-foreign-object (tint-color '(:struct color))
-		 (setf 
-		  (cffi:foreign-slot-value tint-color '(:struct color) 'r) 255
-		  (cffi:foreign-slot-value tint-color '(:struct color) 'g) 255
-		  (cffi:foreign-slot-value tint-color '(:struct color) 'b) 255
-		  (cffi:foreign-slot-value tint-color '(:struct color) 'a) 255)
-	     (rl-draw-text "Raylib lisp game engine" 100 100 20 (cffi:mem-ref tint-color '(:struct color))))
-	   
-	     
-	   (rl-end-drawing))
-  (rl-close-window))
+		  (unwind-protect
+		       (progn	 
+			 (rl-begin-drawing)
+			 (let ((clear-color (make-rl-color :r 0 :g 0 :b 0 :a 0))
+			       (car-sprite (rl-load-texture "car.png")))
+			   (rl-clear-background clear-color)
+			   (rl-draw-texture-ex car-sprite
+					       car-pos
+					       0.0
+					       1.0
+					       (make-rl-color :r 255 :g 0 :b 0 :a 255))))
+		    (rl-end-drawing))))
+    (rl-close-window)))
 
 
 (main)
