@@ -8,7 +8,7 @@
 (cffi:use-foreign-library raylib)
 
 ;; --- Color wrapper ----
-(cffi:defcstruct (%color :class color) 
+(cffi:defcstruct (%color :class color-type) 
   (r :unsigned-char)
   (g :unsigned-char) 
   (b :unsigned-char) 
@@ -20,14 +20,14 @@
   (b 0)
   (a 0))
   
-(defmethod cffi:expand-into-foreign-memory (value (type color) ptr)
+(defmethod cffi:expand-into-foreign-memory (value (type color-type) ptr)
   `(cffi:with-foreign-slots ((r g b a) ,ptr (:struct %color))
      (setf r (rl-color-r ,value)
 	   g (rl-color-g ,value)
 	   b (rl-color-b ,value)
 	   a (rl-color-a ,value))))
 
-(defmethod cffi:translate-into-foreign-memory (value (type color) ptr)
+(defmethod cffi:translate-into-foreign-memory (value (type color-type) ptr)
   (cffi:with-foreign-slots ((r g b a) ptr (:struct %color))
     (setf r (rl-color-r value)
 	  g (rl-color-g value)
@@ -35,7 +35,7 @@
 	  a (rl-color-a value))))
 
 ;; ---- Vector2 wrapper ----
-(cffi:defcstruct (%vector2 :class vector2)
+(cffi:defcstruct (%vector2 :class vector2-type)
   (x :float)
   (y :float))
 
@@ -43,12 +43,12 @@
   (x 0)
   (y 0))
 
-(defmethod cffi:expand-into-foreign-memory (value (type vector2) ptr)
+(defmethod cffi:expand-into-foreign-memory (value (type vector2-type) ptr)
   `(cffi:with-foreign-slots ((x y) ,ptr (:struct %vector2))
      (setf x (rl-vector2-x ,value)
 	   y (rl-vector2-y ,value))))
 
-(defmethod cffi:translate-into-foreign-memory (value (type vector2) ptr)
+(defmethod cffi:translate-into-foreign-memory (value (type vector2-type) ptr)
   (cffi:with-foreign-slots ((x y) ptr (:struct %vector2))
     (setf x (rl-vector2-x value)
 	  y (rl-vector2-y value))))
