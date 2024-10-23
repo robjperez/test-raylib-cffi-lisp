@@ -1,6 +1,8 @@
-(ql:quickload "cffi")
-(ql:quickload "cffi-libffi")
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload "cffi")
+  (ql:quickload "cffi-libffi"))
 
+;; Remember run sbcl/sly from the same folder where the .so file is
 (cffi:define-foreign-library raylib
   (:unix (:or "./libraylib.so.5.5.0"))
   (t (:default "libraylib")))
@@ -124,6 +126,16 @@
   (color (:struct %color)))
 
 (cffi:defcfun
+    ("DrawRectangleLines" rl-draw-rectangle-lines)
+    :void
+  (posX :int)
+  (posY :int)
+  (width :int)
+  (height :int)
+  (color (:struct %color)))
+
+
+(cffi:defcfun
     ("LoadImage" rl-load-image)
     (:struct image)
   (filename :string))
@@ -163,40 +175,3 @@
   (posY :int)
   (fontSize :int)
   (color (:struct %color)))
-
-(defparameter car-pos (make-rl-vector2 :x (float (/ 1024 2)) :y (float (/ 768 2))))
-
-(defun main ()
-  (unwind-protect
-       (progn
-	 (rl-init-window 1024 768 "Test CFFI")
-    
-	 (rl-set-target-fps 60)
-	 
-	 (loop while (not (rl-window-should-close))
-	       do
-		  (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :left))
-		    (setf (rl-vector2-x car-pos) (- (rl-vector2-x car-pos) 3)))
-		  (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :right))
-		    (setf (rl-vector2-x car-pos) (+ (rl-vector2-x car-pos) 3)))
-		  (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :up))
-		    (setf (rl-vector2-y car-pos) (- (rl-vector2-y car-pos) 3)))
-		  (when (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :down))
-		    (setf (rl-vector2-y car-pos) (+ (rl-vector2-y car-pos) 3)))
-
-		  (unwind-protect
-		       (progn	 
-			 (rl-begin-drawing)
-			 (let ((clear-color (make-rl-color :r 0 :g 0 :b 0 :a 0))
-			       (car-sprite (rl-load-texture "car.png")))
-			   (rl-clear-background clear-color)
-			   (rl-draw-texture-ex car-sprite
-					       car-pos
-					       0.0
-					       1.0
-					       (make-rl-color :r 255 :g 0 :b 0 :a 255))))
-		    (rl-end-drawing))))
-    (rl-close-window)))
-
-
-(main)
