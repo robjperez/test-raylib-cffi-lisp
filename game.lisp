@@ -7,6 +7,18 @@
     :initarg :position
     :accessor entity-position
     :initform (make-rl-vector2))
+   (name
+    :initarg :name
+    :accessor entity-name
+    :initform "")
+   (id
+    :initarg :id
+    :accessor entity-id
+    :initform (gensym "eid#"))
+   (update
+    :initarg :update
+    :accessor entity-update
+    :initform nil)
    (texture
     :initarg :texture
     :accessor entity-texture
@@ -25,16 +37,6 @@
 	     (x (rl-vector2-x pos))
 	     (y (rl-vector2-y pos)))
 	(rl-draw-rectangle-lines (round x) (round y) 100 100 (make-rl-color :r 255 :g 0 :b 0 :a 255)))))
-
-(defmethod update (entity  control-keys)
-  ;; control-keys are OPQA Space (LRUDF)
-  (let ((pos (entity-position entity))
-	(offset 3))
-    (when (logbitp 0 control-keys) (setf (rl-vector2-y pos) (+ (rl-vector2-y pos) offset)))
-    (when (logbitp 1 control-keys) (setf (rl-vector2-y pos) (- (rl-vector2-y pos) offset)))
-    (when (logbitp 2 control-keys) (setf (rl-vector2-x pos) (+ (rl-vector2-x pos) offset)))
-    (when (logbitp 3 control-keys) (setf (rl-vector2-x pos) (- (rl-vector2-x pos) offset)))
-    (setf (entity-position entity) pos)))
 
 (defparameter *entities*
   (make-array 10
@@ -62,17 +64,31 @@
 
 	 (vector-push-extend
 	  (make-instance 'entity
-	     :position (make-rl-vector2 :x (float 100) :y (float 100))
-	     :texture (rl-load-texture "car.png"))
+			 :position (make-rl-vector2 :x (float 100) :y (float 100))
+			 :name "Player"
+			 :texture (rl-load-texture "car.png")
+			 :update (lambda (entity)
+				   (let ((pos (entity-position entity))
+					 (offset 3)
+					 (control-keys (get-keyboard-map)))
+				     (when (logbitp 0 control-keys) (setf (rl-vector2-y pos) (+ (rl-vector2-y pos) offset)))
+				     (when (logbitp 1 control-keys) (setf (rl-vector2-y pos) (- (rl-vector2-y pos) offset)))
+				     (when (logbitp 2 control-keys) (setf (rl-vector2-x pos) (+ (rl-vector2-x pos) offset)))
+				     (when (logbitp 3 control-keys) (setf (rl-vector2-x pos) (- (rl-vector2-x pos) offset)))
+
+				     ;; If no keyboard is pressed move down
+				     (if (= control-keys 0)
+					 (incf (rl-vector2-y pos)))
+				     (setf (entity-position entity) pos))
+				   ))
 	  *entities*)
 	 
 	 (loop while (not (rl-window-should-close))
 	       do
 		  (unwind-protect
 		       (progn
-			 (let ((keyboard-status (get-keyboard-map)))
-			   (loop for e across *entities*
-				 do (update e keyboard-status)))
+			 (loop for e across *entities*
+			       do (funcall (entity-update e) e))
 			 
 			 (rl-begin-drawing)
 			 (rl-clear-background *clear-color*)
