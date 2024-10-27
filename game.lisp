@@ -1,7 +1,5 @@
 (load "main.lisp")
 
-(defparameter car-pos (make-rl-vector2 :x (float (/ 1024 2)) :y (float (/ 768 2))))
-
 (defclass entity ()
   ((position
     :initarg :position
@@ -18,7 +16,7 @@
    (update
     :initarg :update
     :accessor entity-update
-    :initform nil)
+    :initform (lambda ()))
    (texture
     :initarg :texture
     :accessor entity-texture
@@ -36,7 +34,7 @@
       (let* ((pos (entity-position entity))
 	     (x (rl-vector2-x pos))
 	     (y (rl-vector2-y pos)))
-	(rl-draw-rectangle-lines (round x) (round y) 100 100 (make-rl-color :r 255 :g 0 :b 0 :a 255)))))
+	(rl-draw-rectangle-lines (round x) (round y) 64 64 (make-rl-color :r 255 :g 0 :b 0 :a 255)))))
 
 (defparameter *entities*
   (make-array 10
@@ -45,14 +43,39 @@
 	      :initial-element nil))
 
 (defvar *clear-color* (make-rl-color :r 0 :g 0 :b 0 :a 0))
+(defvar *shipR* (rl-load-texture "shipR.png"))
+(defvar *shipL* (rl-load-texture "shipL.png"))
 
 (defun get-keyboard-map ()
   (logior
    (if (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :down)) #b0001 0)
    (if (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :up)) (ash 1 1) 0)
    (if (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :right)) (ash 1 2) 0)
-   (if (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :left)) (ash 1 3) 0)))
+   (if (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :left)) (ash 1 3) 0)
+   (if (rl-is-key-down (cffi:foreign-enum-value 'rl-keyboard-key :rctrl)) (ash 1 4) 0)))
    
+
+(defun create-enemy ()
+  (let ((enemy (make-instance 'entity
+			      :position (make-rl-vector2 :x (float (random 1024)) :y 0.0)
+			      :name (format nil "Enemy~A" (gensym))
+			      :texture (rl-load-texture "car.png")
+			      :update (lambda (entity)
+					(let* ((offset 3)
+					       (pos (entity-position entity)))
+					  (setf (rl-vector2-y pos) (+ (rl-vector2-y pos) offset))
+					  (setf (entity-position entity) pos))))))
+    (vector-push-extend enemy *entities*)))
+
+(defun player-fire (player-position)
+  (let ((fire-entity (make-instance 'entity
+				    :position (make-rl-vector2 :x (rl-vector2-x player-position) :y (rl-vector2-y player-position))
+				    :name "Player Fire"
+				    :texture (rl-load-texture "laser.png"))))
+    (vector-push-extend fire-entity *entities*)))
+
+(defun check-entity-out-of-screen (entity)
+  nil)
 
 (defun main ()
   (unwind-protect
@@ -66,15 +89,20 @@
 	  (make-instance 'entity
 			 :position (make-rl-vector2 :x (float 100) :y (float 100))
 			 :name "Player"
-			 :texture (rl-load-texture "car.png")
+			 :texture *shipR*
 			 :update (lambda (entity)
 				   (let ((pos (entity-position entity))
 					 (offset 3)
 					 (control-keys (get-keyboard-map)))
 				     (when (logbitp 0 control-keys) (setf (rl-vector2-y pos) (+ (rl-vector2-y pos) offset)))
 				     (when (logbitp 1 control-keys) (setf (rl-vector2-y pos) (- (rl-vector2-y pos) offset)))
-				     (when (logbitp 2 control-keys) (setf (rl-vector2-x pos) (+ (rl-vector2-x pos) offset)))
-				     (when (logbitp 3 control-keys) (setf (rl-vector2-x pos) (- (rl-vector2-x pos) offset)))
+				     (when (logbitp 2 control-keys)
+				       (setf (rl-vector2-x pos) (+ (rl-vector2-x pos) offset))
+				       (setf (entity-texture entity) *shipL*))
+				     (when (logbitp 3 control-keys)
+				       (setf (rl-vector2-x pos) (- (rl-vector2-x pos) offset))
+				       (setf (entity-texture entity) *shipR*))
+				     (when (logbitp 4 control-keys) (player-fire pos))
 
 				     ;; If no keyboard is pressed move down
 				     (if (= control-keys 0)
@@ -87,16 +115,29 @@
 	       do
 		  (unwind-protect
 		       (progn
+			 ;; Create enemies randomly
+			 ;; (if (= 0 (mod (random 14) 5))
+			 ;;     (create-enemy))
+			 
 			 (loop for e across *entities*
 			       do (funcall (entity-update e) e))
 			 
 			 (rl-begin-drawing)
+			 
 			 (rl-clear-background *clear-color*)
 
 			 (loop for e across *entities*
-			       do (draw e :draw-bb t)))
+			       do
+				  ;; Check if instances are out of the screen and remove them
+				  (if (check-entity-out-of-screen e)
+				      nil)
+				  ;; Draw the pending ones
+				  (draw e :draw-bb t))
+			 
+			 )
 		    
 		    (rl-end-drawing)))
-    (rl-close-window))))
+	 (rl-close-window))))
 
 (main)
+

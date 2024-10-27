@@ -73,7 +73,8 @@
   (:up 265)
   (:down 264)
   (:left 263)
-  (:right 262))
+  (:right 262)
+  (:rctrl 345))
     
 
 (cffi:defcfun
